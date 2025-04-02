@@ -1,69 +1,112 @@
-// Bu örnek API'de gerçek çağrılar yerine mockup data kullanılmıştır
-// Gerçek bir uygulamada Unsplash, Pexels gibi API'ler kullanabilirsiniz
+// api.ts
+import {
+  getCuratedPhotos,
+  getNewPhotos,
+  getTrendingPhotos,
+  getRandomPhotos,
+  searchPhotosByCategory,
+  getPhotoById,
+  Wallpaper
+} from './pexelsApi';
 
-// Örnek duvar kağıdı verileri
-const mockupWallpapers = {
-    new: generateWallpapers('new', 20),
-    trending: generateWallpapers('trending', 20),
-    popular: generateWallpapers('popular', 20),
-    random: generateWallpapers('random', 20),
-    categories: [
-      { id: 1, name: 'Nature', imageUrl: 'https://picsum.photos/500/900?random=1' },
-      { id: 2, name: 'Abstract', imageUrl: 'https://picsum.photos/500/900?random=2' },
-      { id: 3, name: 'Animals', imageUrl: 'https://picsum.photos/500/900?random=3' },
-      { id: 4, name: 'Dark', imageUrl: 'https://picsum.photos/500/900?random=4' },
-      { id: 5, name: 'Minimal', imageUrl: 'https://picsum.photos/500/900?random=5' },
-      { id: 6, name: 'Space', imageUrl: 'https://picsum.photos/500/900?random=6' },
-    ],
-  };
-  
-  // Duvar kağıdı verileri oluşturma
-  function generateWallpapers(category, count) {
-    return Array.from({ length: count }, (_, index) => ({
-      id: `${category}-${index + 1}`,
-      title: `${category.charAt(0).toUpperCase() + category.slice(1)} Wallpaper ${index + 1}`,
-      imageUrl: `https://picsum.photos/500/900?random=${category}-${index + 1}`,
-      category: category,
-      likes: Math.floor(Math.random() * 10000),
-      downloads: Math.floor(Math.random() * 50000),
-    }));
+import {
+  getCategories,
+  getCategoryById,
+  Category
+} from './categoriesService';
+
+// Sayfalama için tipleme
+export interface PaginatedResponse {
+  wallpapers: Wallpaper[];
+  totalResults: number;
+  nextPage?: number;
+}
+
+// Duvar kağıtlarını getir (kategori bazlı)
+export const fetchWallpapers = async (category: string, page: number = 1): Promise<PaginatedResponse> => {
+  try {
+    switch (category) {
+      case 'popular':
+        return await getCuratedPhotos(page);
+      case 'new':
+        return await getNewPhotos(page);
+      case 'trending':
+        return await getTrendingPhotos(page);
+      case 'random':
+        return await getRandomPhotos(page);
+      case 'categories':
+        // Kategori listesini al
+        const categories = await getCategories();
+        return {
+          wallpapers: [],
+          totalResults: 0,
+          categories
+        } as any; // Tip genişletildi
+      default:
+        return { wallpapers: [], totalResults: 0 };
+    }
+  } catch (error) {
+    console.error(`Duvar kağıtları yüklenemedi (${category}):`, error);
+    return { wallpapers: [], totalResults: 0 };
   }
-  
-  // Duvar kağıtlarını getir
-  export const fetchWallpapers = async (category) => {
-    // API çağrısını simüle etmek için gecikme ekleniyor
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockupWallpapers[category] || []);
-      }, 800);
-    });
+};
+
+// Kategorileri getir
+export const fetchCategories = async (): Promise<Category[]> => {
+  try {
+    return await getCategories();
+  } catch (error) {
+    console.error('Kategoriler yüklenemedi:', error);
+    return [];
+  }
+};
+
+// Kategori detayını getir
+export const fetchCategoryById = async (categoryId: string): Promise<Category | null> => {
+  try {
+    return await getCategoryById(categoryId);
+  } catch (error) {
+    console.error(`Kategori detayı yüklenemedi (${categoryId}):`, error);
+    return null;
+  }
+};
+
+// Kategoriye göre duvar kağıtlarını getir
+export const fetchWallpapersByCategory = async (categoryId: string, page: number = 1): Promise<PaginatedResponse> => {
+  try {
+    // Kategori detayını al
+    const category = await getCategoryById(categoryId);
+    
+    if (category) {
+      // Kategori sorgusu ile fotoğrafları ara
+      return await searchPhotosByCategory(category.query, page);
+    }
+    
+    return { wallpapers: [], totalResults: 0 };
+  } catch (error) {
+    console.error(`Kategori duvar kağıtları yüklenemedi (${categoryId}):`, error);
+    return { wallpapers: [], totalResults: 0 };
+  }
+};
+
+// Duvar kağıdı detaylarını getir
+export const fetchWallpaperDetails = async (wallpaperId: string): Promise<Wallpaper | null> => {
+  try {
+    return await getPhotoById(wallpaperId);
+  } catch (error) {
+    console.error(`Duvar kağıdı detayları yüklenemedi (${wallpaperId}):`, error);
+    return null;
+  }
+};
+
+// Pexels kredi bilgisi
+export const getPexelsCredit = () => {
+  return {
+    name: 'Pexels',
+    url: 'https://www.pexels.com',
+    logo: {
+      dark: 'https://images.pexels.com/lib/api/pexels-white.png',
+      light: 'https://images.pexels.com/lib/api/pexels.png'
+    }
   };
-  
-  // Kategoriye göre duvar kağıtlarını getir
-  export const fetchWallpapersByCategory = async (categoryId) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const wallpapers = generateWallpapers(`category-${categoryId}`, 15);
-        resolve(wallpapers);
-      }, 800);
-    });
-  };
-  
-  // Duvar kağıdı detaylarını getir
-  export const fetchWallpaperDetails = async (wallpaperId) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Tüm kategorilerdeki duvar kağıtlarını ara
-        for (const category in mockupWallpapers) {
-          if (Array.isArray(mockupWallpapers[category])) {
-            const wallpaper = mockupWallpapers[category].find(w => w.id === wallpaperId);
-            if (wallpaper) {
-              resolve(wallpaper);
-              return;
-            }
-          }
-        }
-        resolve(null);
-      }, 500);
-    });
-  };
+};
