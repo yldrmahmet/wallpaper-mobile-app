@@ -17,6 +17,7 @@ import {
 
 // Sayfalama için tipleme
 export interface PaginatedResponse {
+  [x: string]: any;
   wallpapers: Wallpaper[];
   totalResults: number;
   nextPage?: number;
