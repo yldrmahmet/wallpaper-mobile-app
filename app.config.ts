@@ -1,4 +1,4 @@
-// app.config.js
+// app.config.ts
 const path = require('path');
 const dotenv = require('dotenv');
 
@@ -27,7 +27,6 @@ module.exports = {
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: "./assets/images/adaptive-icon.png",
       backgroundColor: "#121212"
     },
     package: "com.yourname.wallpaper",
@@ -39,5 +38,8 @@ module.exports = {
   // Burada çevre değişkenlerini extra içinde tanımlıyoruz
   extra: {
     pexelsApiKey: PEXELS_API_KEY,
+    eas: {
+      projectId: "e6ffe722-f174-4bc5-9e28-cd5da6daa60d"
+    }
   },
 };
