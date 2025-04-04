@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,57 +7,99 @@ import {
   ImageBackground, 
   Dimensions, 
   Share,
-  Alert
+  Alert,
+  Linking,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import * as Permissions from 'expo-permissions';
 
 const { width, height } = Dimensions.get('window');
 
 const WallpaperDetailScreen = ({ route, navigation }) => {
   const { wallpaper } = route.params;
   const [isFavorite, setIsFavorite] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  
+  // Check for permissions when the component mounts
+  useEffect(() => {
+    (async () => {
+      // Pre-check permissions when component loads
+      const { status } = await MediaLibrary.getPermissionsAsync();
+      console.log("Initial permission status:", status);
+      
+      // If permission is already denied, prompt the user to change settings
+      if (status === 'denied') {
+        Alert.alert(
+          "Permission Required",
+          "Photo library access is required to save wallpapers. Please enable this permission in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() }
+          ]
+        );
+      }
+      // On iOS, if permission status is 'undetermined', show the system dialog
+      else if (Platform.OS === 'ios' && status === 'undetermined') {
+        const { status: newStatus } = await MediaLibrary.requestPermissionsAsync();
+        console.log("Updated permission status:", newStatus);
+      }
+    })();
+  }, []);
 
   const handleDownload = async () => {
     try {
-      // İzin isteği
+      setDownloading(true);
+      
+      // Request permissions using the updated MediaLibrary API
       const { status } = await MediaLibrary.requestPermissionsAsync();
       
       if (status !== 'granted') {
         Alert.alert(
           "Permission Required",
-          "Please grant permission to save wallpapers to your gallery."
+          "Please grant permission to save wallpapers to your gallery.",
+          [
+            { text: "OK", onPress: () => console.log("Permission denied") }
+          ]
         );
+        setDownloading(false);
         return;
       }
 
-      // Duvar kağıdını indirmek için bir URL oluşturuluyor
+      // Create a file URI for downloading
       const fileUri = FileSystem.documentDirectory + `wallpaper-${Date.now()}.jpg`;
       
-      // Expo FileSystem ile indirme işlemi
+      // Download the image using Expo FileSystem
       const downloadResumable = FileSystem.createDownloadResumable(
         wallpaper.imageUrl,
-        fileUri
+        fileUri,
+        {},
+        (downloadProgress) => {
+          const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+          console.log(`Download progress: ${progress * 100}%`);
+        }
       );
 
       const { uri } = await downloadResumable.downloadAsync();
       
-      // Medya kütüphanesine kaydet
-      await MediaLibrary.saveToLibraryAsync(uri);
+      // Save to media library
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      await MediaLibrary.createAlbumAsync("Wallpapers", asset, false);
       
       Alert.alert(
         "Download Complete",
-        "Wallpaper has been saved to your gallery"
+        "Wallpaper has been saved to your gallery in the 'Wallpapers' album."
       );
     } catch (error) {
       console.error('Error downloading wallpaper:', error);
       Alert.alert(
         "Download Failed",
-        "There was an error downloading the wallpaper"
+        "There was an error downloading the wallpaper. Please try again."
       );
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -72,16 +114,31 @@ const WallpaperDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleApply = () => {
-    // Not: Expo'da duvar kağıdı ayarlama API'si sınırlıdır
-    Alert.alert(
-      "Set as Wallpaper",
-      "To set as wallpaper, please save the image first and then set it through your device settings.",
-      [
-        { text: "Save Image", onPress: handleDownload },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+  const handleApply = async () => {
+    try {
+      // Check permissions first
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          "Permission Required",
+          "Please grant permission to save wallpapers to your gallery."
+        );
+        return;
+      }
+      
+      Alert.alert(
+        "Set as Wallpaper",
+        "To set as wallpaper, please save the image first and then set it through your device settings.",
+        [
+          { text: "Save Image", onPress: handleDownload },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleApply:', error);
+      Alert.alert("Error", "There was an error processing your request.");
+    }
   };
 
   return (
@@ -140,13 +197,19 @@ const WallpaperDetailScreen = ({ route, navigation }) => {
             <TouchableOpacity 
               style={styles.actionButton} 
               onPress={handleDownload}
+              disabled={downloading}
             >
-              <Ionicons name="download" size={22} color="#FFF" />
+              {downloading ? (
+                <Ionicons name="hourglass-outline" size={22} color="#FFF" />
+              ) : (
+                <Ionicons name="download" size={22} color="#FFF" />
+              )}
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.applyButton} 
               onPress={handleApply}
+              disabled={downloading}
             >
               <Text style={styles.applyButtonText}>Apply</Text>
             </TouchableOpacity>

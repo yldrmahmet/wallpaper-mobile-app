@@ -13,21 +13,6 @@ const Header = () => {
         style={styles.appIcon}
       />
       <View style={styles.iconsContainer}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => {}}>
-          <Ionicons name="search" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={() => navigation.navigate('Premium')}
-        >
-          <Ionicons name="diamond" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={() => navigation.navigate('Settings')}
-        >
-          <Ionicons name="settings-outline" size={24} color="#FFF" />
-        </TouchableOpacity>
       </View>
     </View>
   );

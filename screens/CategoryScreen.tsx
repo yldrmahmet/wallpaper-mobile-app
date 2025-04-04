@@ -31,11 +31,13 @@ const CategoryScreen = ({ route, navigation }) => {
   const [hasMore, setHasMore] = useState(true);
   const [totalResults, setTotalResults] = useState(0);
   
-  // Animasyon değerleri
+  // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
+  
+  // Modified animation interpolations
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 200],
-    outputRange: [200, 60],
+    outputRange: [200, 0], // Change to 0 instead of 60 to completely collapse
     extrapolate: 'clamp'
   });
   
@@ -51,7 +53,7 @@ const CategoryScreen = ({ route, navigation }) => {
     extrapolate: 'clamp'
   });
 
-  // İçerik yükleme fonksiyonu
+  // Content loading function
   const loadCategoryWallpapers = useCallback(async (currentPage = 1, append = false) => {
     if (currentPage === 1) {
       if (!append) setLoading(true);
@@ -75,14 +77,14 @@ const CategoryScreen = ({ route, navigation }) => {
         setHasMore(!!response.nextPage);
         
         if (currentPage === 1 && !append) {
-          // Listenin başına kaydır
+          // Scroll to the top of the list
           if (flatListRef.current) {
             flatListRef.current.scrollToOffset({ offset: 0, animated: true });
           }
         }
       }
     } catch (error) {
-      console.error('Kategori duvar kağıtları yüklenirken hata oluştu:', error);
+      console.error('Error loading category wallpapers:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -98,7 +100,7 @@ const CategoryScreen = ({ route, navigation }) => {
     navigation.navigate('WallpaperDetail', { wallpaper });
   };
   
-  // Yenileme
+  // Refresh
   const handleRefresh = () => {
     setRefreshing(true);
     setPage(1);
@@ -106,7 +108,7 @@ const CategoryScreen = ({ route, navigation }) => {
     loadCategoryWallpapers(1, false);
   };
   
-  // Daha fazla yükleme
+  // Load more
   const handleLoadMore = () => {
     if (hasMore && !loadingMore && !loading) {
       const nextPage = page + 1;
@@ -115,7 +117,7 @@ const CategoryScreen = ({ route, navigation }) => {
     }
   };
   
-  // FlatList referansı
+  // FlatList reference
   const flatListRef = useRef(null);
 
   const renderWallpaperItem = ({ item }) => (
@@ -125,7 +127,7 @@ const CategoryScreen = ({ route, navigation }) => {
     />
   );
   
-  // Liste altı içeriği
+  // Footer content
   const renderFooter = () => {
     if (!loadingMore) return null;
     
@@ -136,15 +138,30 @@ const CategoryScreen = ({ route, navigation }) => {
     );
   };
   
-  // Pexels kredi bilgisi
+  // Pexels credit info
   const pexelsCredit = getPexelsCredit();
+
+  // Calculate dynamic margin based on header state
+  const contentMarginTop = scrollY.interpolate({
+    inputRange: [0, 200],
+    outputRange: [200, 0], // Adjust this to match header collapse
+    extrapolate: 'clamp'
+  });
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Kategori başlık arkaplanı */}
-      <Animated.View style={[styles.headerContainer, { height: headerHeight }]}>
+      {/* Category title background */}
+      <Animated.View 
+        style={[
+          styles.headerContainer, 
+          { 
+            height: headerHeight,
+            opacity: headerOpacity
+          }
+        ]}
+      >
         <ImageBackground
           source={{ uri: category.imageUrl }}
           style={styles.headerImage}
@@ -183,11 +200,11 @@ const CategoryScreen = ({ route, navigation }) => {
         </ImageBackground>
       </Animated.View>
       
-      {/* Duvar kağıtları listesi */}
+      {/* Wallpapers list */}
       {loading && !refreshing ? (
-        <View style={styles.loaderContainer}>
+        <Animated.View style={[styles.loaderContainer, { marginTop: contentMarginTop }]}>
           <ActivityIndicator size="large" color="#3498db" />
-        </View>
+        </Animated.View>
       ) : (
         <Animated.FlatList
           ref={flatListRef}
@@ -206,7 +223,7 @@ const CategoryScreen = ({ route, navigation }) => {
             !loading ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  Bu kategoride duvar kağıdı bulunamadı.
+                  No wallpapers found in this category.
                 </Text>
               </View>
             ) : null
@@ -216,14 +233,11 @@ const CategoryScreen = ({ route, navigation }) => {
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: false }
           )}
-          // Header için ekstra margin
-          contentInset={{ top: 0 }}
-          contentOffset={{ y: 0 }}
-          style={styles.flatList}
+          style={{ paddingTop: 0 }} // Remove fixed padding
         />
       )}
       
-      {/* Küçük başlık (scroll sonrası görünecek) */}
+      {/* Small header (visible after scrolling) */}
       <Animated.View 
         style={[
           styles.smallHeaderContainer, 
@@ -250,21 +264,20 @@ const CategoryScreen = ({ route, navigation }) => {
         </BlurView>
       </Animated.View>
       
-      {/* Pexels kredisi */}
+      {/* Pexels credit */}
       <View style={styles.creditContainer}>
         <TouchableOpacity 
           style={styles.creditButton}
           onPress={() => {
-            // Pexels'e yönlendirme eklenebilir
+            // Redirect to Pexels can be added here
           }}
         >
-          <Text style={styles.creditText}>Fotoğraflar</Text>
+          <Text style={styles.creditText}>Photos by</Text>
           <Image 
             source={{ uri: pexelsCredit.logo.dark }} 
             style={styles.creditLogo} 
             resizeMode="contain"
           />
-          <Text style={styles.creditText}>tarafından sağlanmıştır</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -361,20 +374,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  flatList: {
-    flex: 1,
-    marginTop: 200, // Header yüksekliği kadar
-  },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 200, // Header yüksekliği kadar
   },
   wallpapersList: {
     paddingHorizontal: 8,
     paddingTop: 16,
-    paddingBottom: 70, // Pexels kredisi için boşluk bırak
+    paddingBottom: 70, // Space for Pexels credit
   },
   footerLoader: {
     paddingVertical: 20,
